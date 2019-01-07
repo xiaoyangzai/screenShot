@@ -33,14 +33,14 @@ static void jpeg_error_exit (j_common_ptr cinfo) {
 
 
 /*This returns an array for a 24 bit image.*/
-uint8_t *decode_jpeg (const char *filename, uint32_t *width,uint32_t *height,uint32_t *bpp)
+uint8_t *decode_jpeg (const char *filename, uint32_t *width,uint32_t *height,uint32_t *bpp,memonry_pool_t *pool)
 {
 	register JSAMPARRAY lineBuf;
 	struct jpeg_decompress_struct cinfo;
 	struct jpeg_error_mgr err_mgr;
 	int bytesPerPix;
 	FILE *inFile;
-	u_char *retBuf;
+	uint8_t *retBuf;
 	
 	inFile = fopen (filename, "rb");
 	if (NULL == inFile)	{ 
@@ -71,7 +71,7 @@ uint8_t *decode_jpeg (const char *filename, uint32_t *width,uint32_t *height,uin
 	*bpp = bytesPerPix;
 
 	lineBuf = cinfo.mem->alloc_sarray ((j_common_ptr) &cinfo, JPOOL_IMAGE, (*widthPtr * bytesPerPix), 1);
-	retBuf = (u_char *) malloc (3 * (*widthPtr * *heightPtr));
+	retBuf = (uint8_t *)memonry_pool_alloc(pool,3 * (*widthPtr * *heightPtr));
 		
 	if (NULL == retBuf) {
 		perror (NULL);
@@ -118,16 +118,15 @@ uint8_t *decode_jpeg (const char *filename, uint32_t *width,uint32_t *height,uin
 	jpeg_finish_decompress (&cinfo);
 	jpeg_destroy_decompress (&cinfo);
 	fclose (inFile);
-			
 	return retBuf;
 }
 
-uint32_t * rgb24to32(uint8_t *buf24, uint32_t width,uint32_t height)
+uint32_t * rgb24to32(uint8_t *buf24, uint32_t width,uint32_t height,memonry_pool_t *pool)
 {
 	int w = width;
 	int h = height;
 	
-	uint32_t *buf =(uint32_t*)malloc(w * h * 4);
+	uint32_t *buf =(uint32_t*)memonry_pool_alloc(pool,w * h * 4);
 	if (buf == NULL) 
 		return NULL;
 
@@ -139,10 +138,10 @@ uint32_t * rgb24to32(uint8_t *buf24, uint32_t width,uint32_t height)
 		*((uint8_t *)&buf[i] + 0) = buf24[i * 3 + 2];
 		*((uint8_t *)&buf[i] + 3) = 0x00;
 	}
-	return (uint32_t *)buf;
+	return buf;
 }
 
-uint16_t * rgb24to16(uint8_t *buf24, uint32_t width,uint32_t height)
+uint16_t * rgb24to16(uint8_t *buf24, uint32_t width,uint32_t height,memonry_pool_t*pool)
 {
 	uint16_t *buf16 = NULL;
 	
@@ -151,7 +150,7 @@ uint16_t * rgb24to16(uint8_t *buf24, uint32_t width,uint32_t height)
 	uint16_t rgb16;
 	uint32_t i;
 	uint32_t w = width,h = height;
-	if ((buf16 = (uint16_t *)malloc (w * h * 2)) == NULL)
+	if ((buf16 = (uint16_t *)memonry_pool_alloc(pool,w * h * 2)) == NULL)
 		return NULL;
 
 	for (i = 0 ;i < w * h ; i++)	{
@@ -395,7 +394,7 @@ void yuyv_to_rgb(unsigned char* yuyv,unsigned char* rgb24,int w,int h)
 	Return:
 		Upon successfully completion, encode_jpeg shall return the 0. Otherwise, -1 shall be returned. 
 */
-int encode_jpeg(uint8_t*rgb24,int width,int height,uint8_t **outbuffer,uint64_t*outlen)
+int encode_jpeg(uint8_t*rgb24,int width,int height,uint8_t **outbuffer,uint64_t*outlen,memonry_pool_t *pool)
 {
 	uint8_t *outdata = rgb24;
 	struct jpeg_compress_struct cinfo = { 0 };
@@ -408,7 +407,6 @@ int encode_jpeg(uint8_t*rgb24,int width,int height,uint8_t **outbuffer,uint64_t*
 
 	cinfo.err = jpeg_std_error(&jerr);
 	jpeg_create_compress(&cinfo);
-
 
 	jpeg_mem_dest(&cinfo, outbuffer, outlen);
 	cinfo.image_width = width;
@@ -432,7 +430,14 @@ int encode_jpeg(uint8_t*rgb24,int width,int height,uint8_t **outbuffer,uint64_t*
 
 	jpeg_finish_compress(&cinfo);
 	jpeg_destroy_compress(&cinfo);
-
+	uint8_t *jpeg_data = (uint8_t *)memonry_pool_alloc(pool,*outlen);
+	if(jpeg_data == NULL)
+	{
+		fprintf(stderr,"memory pool allocate failed\n");
+		exit(-1);
+	}
+	memcpy(jpeg_data,*outbuffer,*outlen);
+	free(*outbuffer);
+	*outbuffer = jpeg_data;
 	return 0;
-
 }

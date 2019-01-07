@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS= -I ./libjpeg/include
+CFLAGS= -I ./libjpeg/include -DENCODE_TEST
 LIBS=-lX11	-ljpeg -L./libjpeg/lib
 source=$(wildcard ./*.c)
 objects=$(patsubst %.c,%.o,$(source))
@@ -10,4 +10,4 @@ $(targets) : $(objects)
 	$(CC) $^ -o $@ $(CFLAGS) $(LIBS)
 
 clean:
-	-rm $(objects) $(targets) -f
+	-rm $(objects) $(targets) *.jpg -f

@@ -11,7 +11,7 @@
 /*
 	Screen width and hieght;
 */
-uint8_t *alloc_rgb24_memory(uint32_t *screen_width,uint32_t *screen_height)
+int get_window_size(uint32_t *screen_width,uint32_t *screen_height)
 {
 	Window desktop;
 	Display* dsp;
@@ -34,14 +34,9 @@ uint8_t *alloc_rgb24_memory(uint32_t *screen_width,uint32_t *screen_height)
 	*screen_width = DisplayWidth(dsp,0);
 	*screen_height = DisplayHeight(dsp,0);
 	XCloseDisplay(dsp);
-	uint8_t *rgb24 = (uint8_t*)malloc((*screen_width) * (*screen_height)*3);
-	return rgb24;
+	return 0;
 }
 
-void free_rgb24_memory(uint8_t *rgb24)
-{
-	return free(rgb24);
-}
 /*
 Capture a local screenshot of the desktop,
 This returns an array for a 24 bit image.

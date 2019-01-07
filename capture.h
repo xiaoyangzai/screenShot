@@ -17,9 +17,8 @@
    Return
    		Upon successfully completion, a pointer specified the buffer of the rgb24 buffer. Otherwise, NULL shall be returned.
 */
-uint8_t *alloc_rgb24_memory(uint32_t *screen_width,uint32_t *screen_height);
+int get_window_size(uint32_t *screen_width,uint32_t *screen_height);
 
-void free_rgb24_memory(uint8_t *rgb24);
 /*
 Capture a local screenshot of the desktop,
 This returns an array for a 24 bit image.
