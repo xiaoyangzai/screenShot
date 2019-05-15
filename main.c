@@ -23,12 +23,18 @@ int main(int argc,char *argv[])
 	uint8_t *outbuf = NULL;
 	uint64_t outlen = 0;
 	uint32_t bpp;
-	uint8_t *rgb24 = decode_jpeg(argv[1],&width,&height,&bpp,pool);
+
+	uint8_t *rgb24 = (uint8_t *)memory_pool_alloc(10*1024*1024);
+	if(decode_jpeg(argv[1],&width,&height,&bpp,rgb24) < 0)
+	{
+		fprintf(stderr,"%s\n","decode jpeg file failed!");
+		return -1;
+	}
 	printf("========JPEG File Informatoin =========\n");
 	printf("Image size: %d * %d * %d = %d\n",width,height,bpp,width*height*bpp);
 	printf("=======================================\n");
 
-	encode_jpeg(rgb24,width,height,&outbuf,&outlen,pool);
+	encode_jpeg(rgb24,width,height,&outbuf,&outlen);
 
 	int fd = open(argv[2],O_WRONLY|O_CREAT,0664);
 	if(write(fd,outbuf,outlen) != (ssize_t)outlen)
@@ -55,10 +61,10 @@ int main(int argc,char *argv[])
 	get_window_size(&width,&height);
 	uint8_t *rgb24 = (uint8_t *)memory_pool_alloc(global_pool,width*height*3);
 	CaptureDesktop(rgb24);  
-	encode_jpeg(rgb24,width,height,&outbuf,&outlen,global_pool);
+	encode_jpeg(rgb24,width,height,&outbuf,&outlen);
 
 	CaptureDesktop(rgb24);  
-	encode_jpeg(rgb24,width,height,&outbuf,&outlen,global_pool);
+	encode_jpeg(rgb24,width,height,&outbuf,&outlen);
 
 	int fd = open(argv[1],O_WRONLY|O_CREAT,0664);
 	if(write(fd,outbuf,outlen) != (ssize_t)outlen)

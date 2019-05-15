@@ -33,19 +33,18 @@ static void jpeg_error_exit (j_common_ptr cinfo) {
 
 
 /*This returns an array for a 24 bit image.*/
-uint8_t *decode_jpeg (const char *filename, uint32_t *width,uint32_t *height,uint32_t *bpp,memory_pool_t *pool)
+int decode_jpeg (const char *filename, uint32_t *width,uint32_t *height,uint32_t *bpp,uint8_t *outdata)
 {
 	register JSAMPARRAY lineBuf;
 	struct jpeg_decompress_struct cinfo;
 	struct jpeg_error_mgr err_mgr;
 	int bytesPerPix;
 	FILE *inFile;
-	uint8_t *retBuf;
 	
 	inFile = fopen (filename, "rb");
 	if (NULL == inFile)	{ 
 		fprintf (stderr, "Error Open %s: %s\n",filename, strerror(errno));
-		return NULL;
+		return -1;
 	}
 
 	cinfo.err = jpeg_std_error (&err_mgr);
@@ -71,20 +70,17 @@ uint8_t *decode_jpeg (const char *filename, uint32_t *width,uint32_t *height,uin
 	*bpp = bytesPerPix;
 
 	lineBuf = cinfo.mem->alloc_sarray ((j_common_ptr) &cinfo, JPOOL_IMAGE, (*widthPtr * bytesPerPix), 1);
-	retBuf = (uint8_t *)memory_pool_alloc(pool,3 * (*widthPtr * *heightPtr));
-		
-	if (NULL == retBuf) {
+	if (NULL == outdata) {
 		perror (NULL);
-		return NULL;
+		return -1;
 	}
 		
-
 	if (3 == bytesPerPix) {
 		uint32_t y;
 			
 		for (y = 0; y < cinfo.output_height; ++y)	{	
 			jpeg_read_scanlines (&cinfo, lineBuf, 1);
-			memcpy ((retBuf + y * *widthPtr * 3),lineBuf[0],3 * *widthPtr);
+			memcpy ((outdata + y * *widthPtr * 3),lineBuf[0],3 * *widthPtr);
 		}
 	}
 	else if (1 == bytesPerPix) { 
@@ -101,11 +97,11 @@ uint8_t *decode_jpeg (const char *filename, uint32_t *width,uint32_t *height,uin
 			for (x = 0; x < lineOffset; ++x) {
 				col = lineBuf[0][lineBufIndex];
 			
-				retBuf[(lineOffset * y) + x] = col;
+				outdata[(lineOffset * y) + x] = col;
 				++x;
-				retBuf[(lineOffset * y) + x] = col;
+				outdata[(lineOffset * y) + x] = col;
 				++x;
-				retBuf[(lineOffset * y) + x] = col;
+				outdata[(lineOffset * y) + x] = col;
 				
 				++lineBufIndex;
 			}			
@@ -113,45 +109,43 @@ uint8_t *decode_jpeg (const char *filename, uint32_t *width,uint32_t *height,uin
 	}
 	else {
 		fprintf (stderr, "Error: the number of color channels is %d.  This program only handles 1 or 3\n", bytesPerPix);
-		return NULL;
+		return -1;
 	}
 	jpeg_finish_decompress (&cinfo);
 	jpeg_destroy_decompress (&cinfo);
 	fclose (inFile);
-	return retBuf;
+	return 3 * (*widthPtr * *heightPtr);
 }
 
-uint32_t * rgb24to32(uint8_t *buf24, uint32_t width,uint32_t height,memory_pool_t *pool)
+int rgb24to32(uint8_t *buf24, uint32_t width,uint32_t height,uint32_t *outdata)
 {
 	int w = width;
 	int h = height;
 	
-	uint32_t *buf =(uint32_t*)memory_pool_alloc(pool,w * h * 4);
-	if (buf == NULL) 
-		return NULL;
+	if (outdata == NULL) 
+		return -1;
 
 	/* FIXME: why? */
 	int i;
 	for(i = 0; i < w * h; ++i){
-		*((uint8_t *)&buf[i] + 2) = buf24[i * 3 + 0];
-		*((uint8_t *)&buf[i] + 1) = buf24[i * 3 + 1];
-		*((uint8_t *)&buf[i] + 0) = buf24[i * 3 + 2];
-		*((uint8_t *)&buf[i] + 3) = 0x00;
+		*((uint8_t *)&outdata[i] + 2) = buf24[i * 3 + 0];
+		*((uint8_t *)&outdata[i] + 1) = buf24[i * 3 + 1];
+		*((uint8_t *)&outdata[i] + 0) = buf24[i * 3 + 2];
+		*((uint8_t *)&outdata[i] + 3) = 0x00;
 	}
-	return buf;
+	return 0;
 }
 
-uint16_t * rgb24to16(uint8_t *buf24, uint32_t width,uint32_t height,memory_pool_t*pool)
+int rgb24to16(uint8_t *buf24, uint32_t width,uint32_t height,uint16_t *outdata)
 {
-	uint16_t *buf16 = NULL;
 	
 	uint32_t r24,g24,b24;
 	uint32_t r16,g16,b16;
 	uint16_t rgb16;
 	uint32_t i;
 	uint32_t w = width,h = height;
-	if ((buf16 = (uint16_t *)memory_pool_alloc(pool,w * h * 2)) == NULL)
-		return NULL;
+	if (outdata == NULL)
+		return -1;
 
 	for (i = 0 ;i < w * h ; i++)	{
 
@@ -165,9 +159,9 @@ uint16_t * rgb24to16(uint8_t *buf24, uint32_t width,uint32_t height,memory_pool_
 	
 		rgb16 = b16 | (g16 <<5) | (r16 <<11);
 	
-		buf16[i] = rgb16;
+		outdata[i] = rgb16;
 	}
-	return buf16;
+	return 0;
 }
 
 
@@ -394,7 +388,7 @@ void yuyv_to_rgb(unsigned char* yuyv,unsigned char* rgb24,int w,int h)
 	Return:
 		Upon successfully completion, encode_jpeg shall return the 0. Otherwise, -1 shall be returned. 
 */
-int encode_jpeg(uint8_t*rgb24,int width,int height,uint8_t **outbuffer,uint64_t*outlen,memory_pool_t *pool)
+int encode_jpeg(uint8_t*rgb24,int width,int height,uint8_t **outbuffer,uint64_t*outlen)
 {
 	uint8_t *outdata = rgb24;
 	struct jpeg_compress_struct cinfo = { 0 };
@@ -430,14 +424,5 @@ int encode_jpeg(uint8_t*rgb24,int width,int height,uint8_t **outbuffer,uint64_t*
 
 	jpeg_finish_compress(&cinfo);
 	jpeg_destroy_compress(&cinfo);
-	uint8_t *jpeg_data = (uint8_t *)memory_pool_alloc(pool,*outlen);
-	if(jpeg_data == NULL)
-	{
-		fprintf(stderr,"memory pool allocate failed\n");
-		exit(-1);
-	}
-	memcpy(jpeg_data,*outbuffer,*outlen);
-	free(*outbuffer);
-	*outbuffer = jpeg_data;
 	return 0;
 }
