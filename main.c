@@ -22,8 +22,6 @@ int main(int argc,char *argv[])
 	uint8_t *rgb24 = (uint8_t *)malloc(width*height*3);
 	CaptureDesktop(rgb24);  
 	encode_jpeg(rgb24,width,height,&outbuf,&outlen);
-	CaptureDesktop(rgb24);  
-	encode_jpeg(rgb24,width,height,&outbuf,&outlen);
 
 	int fd = open(argv[1],O_WRONLY|O_CREAT,0664);
 	if(write(fd,outbuf,outlen) != (ssize_t)outlen)
