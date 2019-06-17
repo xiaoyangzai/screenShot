@@ -16,12 +16,12 @@ int main(int argc,char *argv[])
 	}
 
 	uint32_t width = 0,height = 0;
-	uint8_t *outbuf = NULL;
+	uint8_t *outbuf = (uint8_t *)malloc(5*1024*1024);
 	uint64_t outlen = 0;
 	get_window_size(&width,&height);
 	uint8_t *rgb24 = (uint8_t *)malloc(width*height*3);
 	CaptureDesktop(rgb24);  
-	encode_jpeg(rgb24,width,height,&outbuf,&outlen);
+	encode_jpeg(rgb24,width,height,outbuf,&outlen);
 
 	int fd = open(argv[1],O_WRONLY|O_CREAT,0664);
 	if(write(fd,outbuf,outlen) != (ssize_t)outlen)
